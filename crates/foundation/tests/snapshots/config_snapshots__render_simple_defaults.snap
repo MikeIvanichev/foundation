@@ -1,0 +1,22 @@
+---
+source: crates/foundation/tests/config_snapshots.rs
+expression: "Render::new(\"APP\").defaults::<SimpleConfig>()"
+---
+# Service display name.
+# env: APP__NAME
+name: foundation
+
+# Logging settings.
+logging:
+
+  # Enables JSON logging.
+  # env: APP__LOGGING__JSON
+  json: false
+
+  # Optional extra targets.
+  # env: APP__LOGGING__EXTRA_TARGETS
+  extra_targets: []
+
+# Optional labels.
+# env: APP__LABELS
+labels: {}

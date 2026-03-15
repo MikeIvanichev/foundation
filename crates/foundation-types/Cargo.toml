@@ -1,0 +1,11 @@
+[package]
+name = "foundation-types"
+version = "0.0.0"
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Shared config schema types for foundation."
+
+[lints]
+workspace = true

@@ -30,6 +30,10 @@ test *flags:
 doc *flags:
     RUSTDOCFLAGS="--cfg docsrs" cargo doc --all-features --no-deps --document-private-items --keep-going {{ flags }}
 
+
+doc-pub *flags:
+    RUSTDOCFLAGS="--cfg docsrs" cargo doc --all-features --no-deps --keep-going {{ flags }}
+
 [private]
 _assert-clean:
     {{ if `test -z "$(git status --porcelain --untracked-files=no)" && echo clean || echo dirty` == "dirty" {

@@ -1,0 +1,41 @@
+# Human-readable service name.
+# env: FOUNDATION__SERVICE_NAME
+service_name: foundation-example
+
+# Port to bind.
+# env: FOUNDATION__PORT
+port: not-a-port
+
+# Logging configuration.
+logging:
+
+  # Enables JSON logs.
+  # env: FOUNDATION__LOGGING__JSON
+  json: false
+
+  # Minimum log level to emit.
+  # env: FOUNDATION__LOGGING__LEVEL
+  level: info
+
+  # Additional log targets to enable.
+  # env: FOUNDATION__LOGGING__EXTRA_TARGETS
+  extra_targets: []
+
+# Gateway configuration.
+gateway:
+
+  # Public HTTP gateway.
+  http:
+
+    # Primary upstream endpoint.
+    endpoint:
+
+      # Base URL for upstream requests.
+      # env: FOUNDATION__GATEWAY__HTTP__ENDPOINT__BASE_URL
+      base_url: https://api.example.invalid/
+
+  # Listener transport selection.
+  # env: FOUNDATION__GATEWAY__LISTENER
+  listener:
+    http:
+      bind: 0.0.0.0:8080

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "tests/*"]
+members = ["crates/*", "tests/testsuite"]
 
 [workspace.package]
 repository = "https://github.com/MikeIvanichev/foundation.git"
@@ -10,6 +10,82 @@ publish = false
 
 [workspace.dependencies]
 automod = "1.0.14"
+anyhow = { version = "1.0.100", default-features = false, features = ["std"] }
+clap = { version = "4.5.39", default-features = false, features = [
+  "color",
+  "derive",
+  "error-context",
+  "help",
+  "std",
+  "suggestions",
+  "usage",
+] }
+foundation-macros = { path = "crates/foundation-macros", version = "0.0.0" }
+foundation-types = { path = "crates/foundation-types", version = "0.0.0" }
+http = { version = "1.3.1", default-features = false, features = ["std"] }
+humantime-serde = { version = "1.1.1", default-features = false }
+opentelemetry = { version = "0.31.0", default-features = false, features = [
+  "metrics",
+  "trace",
+] }
+opentelemetry-otlp = { version = "0.31.0", default-features = false, features = [
+  "grpc-tonic",
+  "metrics",
+  "tls-webpki-roots",
+  "trace",
+  "zstd-tonic",
+] }
+opentelemetry-semantic-conventions = { version = "0.31.0", default-features = false, features = [
+  "semconv_experimental",
+] }
+opentelemetry_sdk = { version = "0.31.0", default-features = false, features = [
+  "experimental_metrics_periodicreader_with_async_runtime",
+  "experimental_trace_batch_span_processor_with_async_runtime",
+  "metrics",
+  "rt-tokio",
+  "trace",
+] }
+proc-macro2 = { version = "1.0.95", default-features = false }
+quote = { version = "1.0.40", default-features = false }
+serde = { version = "1.0.228", default-features = false, features = [
+  "derive",
+  "std",
+] }
+serde_derive_internals = "0.29.1"
+serde-saphyr = { version = "0.0.23", default-features = false, features = ["serialize"] }
+serde_tokenstream = { version = "0.2.3", default-features = false }
+syn = { version = "2.0.101", default-features = false, features = [
+  "clone-impls",
+  "derive",
+  "full",
+  "parsing",
+  "printing",
+  "proc-macro",
+] }
+tikv-jemallocator = { version = "0.6", features = [
+  "profiling",
+  "unprefixed_malloc_on_supported_platforms",
+] }
+tracing = { version = "0.1.41", default-features = false, features = [
+  "attributes",
+  "std",
+] }
+tracing-opentelemetry = { version = "0.32.0", default-features = false, features = [
+  "metrics",
+  "tracing-log",
+] }
+tracing-panic = "0.1.2"
+tracing-subscriber = { version = "0.3.20", default-features = false, features = [
+  "env-filter",
+  "fmt",
+  "parking_lot",
+  "smallvec",
+  "std",
+] }
+url = { version = "2.5.8", default-features = false, features = [
+  "serde",
+  "std",
+] }
 
 [workspace.lints.rust]
 unnameable_types = "warn"

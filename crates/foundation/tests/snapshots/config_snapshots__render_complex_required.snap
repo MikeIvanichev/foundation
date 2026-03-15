@@ -1,0 +1,7 @@
+---
+source: crates/foundation/tests/config_snapshots.rs
+expression: "Render::new(\"FOUNDATION\").required::<ComplexConfig>()"
+---
+# Port to bind.
+# env: FOUNDATION__PORT
+port: <required>
