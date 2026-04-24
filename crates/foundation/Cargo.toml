@@ -13,24 +13,20 @@ rustdoc-args = ["--cfg=docsrs", "--cfg=tokio_unstable"]
 
 [features]
 default = []
-config = [
-    "dep:foundation-macros",
-    "dep:foundation-types",
-    "dep:serde-saphyr",
-]
+config = ["dep:foundation-macros", "dep:foundation-types", "dep:serde-saphyr"]
 jemalloc = ["dep:tikv-jemallocator"]
 otel = [
-    "dep:http",
-    "dep:humantime-serde",
-    "dep:opentelemetry",
-    "dep:opentelemetry-otlp",
-    "dep:opentelemetry-semantic-conventions",
-    "dep:opentelemetry_sdk",
-    "dep:serde",
-    "dep:tracing",
-    "dep:tracing-opentelemetry",
-    "dep:tracing-panic",
-    "dep:tracing-subscriber",
+  "dep:http",
+  "dep:humantime-serde",
+  "dep:opentelemetry",
+  "dep:opentelemetry-otlp",
+  "dep:opentelemetry-semantic-conventions",
+  "dep:opentelemetry_sdk",
+  "dep:serde",
+  "dep:tracing",
+  "dep:tracing-opentelemetry",
+  "dep:tracing-panic",
+  "dep:tracing-subscriber",
 ]
 full = ["config", "jemalloc", "otel"]
 

@@ -1,27 +1,22 @@
 # Human-readable service name.
 # env: FOUNDATION__SERVICE_NAME
 service_name: demo-service
-
 # Port to bind.
 # env: FOUNDATION__PORT
 port: 8080
-
 # Logging configuration.
 logging:
   # Enables JSON logs.
   # env: FOUNDATION__LOGGING__JSON
   json: true
-
   # Minimum log level to emit.
   # env: FOUNDATION__LOGGING__LEVEL
   level: debug
-
   # Additional log targets to enable.
   # env: FOUNDATION__LOGGING__EXTRA_TARGETS
   extra_targets:
     - sqlx
     - tower_http
-
 # Gateway configuration.
 gateway:
   # Public HTTP gateway.
@@ -31,7 +26,6 @@ gateway:
       # Base URL for upstream requests.
       # env: FOUNDATION__GATEWAY__HTTP__ENDPOINT__BASE_URL
       base_url: https://demo.example.invalid/
-
   # Listener transport selection.
   listener:
     # HTTP listener configuration.

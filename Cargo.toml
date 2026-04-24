@@ -54,7 +54,9 @@ serde = { version = "1.0.228", default-features = false, features = [
   "std",
 ] }
 serde_derive_internals = "0.29.1"
-serde-saphyr = { version = "0.0.23", default-features = false, features = ["serialize"] }
+serde-saphyr = { version = "0.0.23", default-features = false, features = [
+  "serialize",
+] }
 serde_tokenstream = { version = "0.2.3", default-features = false }
 syn = { version = "2.0.101", default-features = false, features = [
   "clone-impls",
