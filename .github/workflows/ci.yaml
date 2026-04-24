@@ -1,0 +1,224 @@
+name: CI
+permissions:
+  contents: read
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CLICOLOR: 1
+  # LINT.IfChange(msrv)
+  MSRV: "1.95.0"
+  # LINT.ThenChange(//Cargo.toml:msrv)
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  ci:
+    permissions:
+      contents: none
+    name: CI
+    needs: [test, msrv, lockfile, docs, formatting, clippy, minimal-versions, coverage]
+    runs-on: ubuntu-latest
+    if: "always()"
+    steps:
+      - name: Failed
+        run: exit 1
+        if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')"
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        rust: ["stable"]
+    continue-on-error: ${{ matrix.rust != 'stable' }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ matrix.rust }}
+          cargo-hack: "true"
+          cargo-nextest: "true"
+      - name: Build
+        run: cargo nextest run --workspace --no-run
+      - name: Test
+        run: cargo hack nextest run --each-feature --workspace --no-tests=pass
+  msrv:
+    name: Check MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.MSRV }}
+          cargo-hack: "true"
+      - name: Check declared MSRV
+        run: cargo hack check --each-feature --locked --rust-version --workspace --all-targets --keep-going
+  minimal-versions:
+    name: Minimal versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup MSRV
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: nightly
+      - name: Downgrade dependencies to minimal versions
+        run: cargo +nightly generate-lockfile -Z minimal-versions
+      - name: Compile with minimal versions
+        run: cargo +${{ env.MSRV }} check --workspace --all-features --locked --keep-going
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+      - name: Is lockfile updated?
+        run: cargo update --workspace --locked
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --all-features --no-deps --document-private-items --keep-going
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.MSRV }}
+          components: rustfmt
+      - name: Setup Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: "1.26"
+      - name: Install Taplo
+        uses: taiki-e/install-action@74e87cbfa15a59692b158178d8905a61bf6fca95 # v2.75.20
+        with:
+          tool: taplo@0.10.0
+      - name: Install just
+        uses: taiki-e/install-action@74e87cbfa15a59692b158178d8905a61bf6fca95 # v2.75.20
+        with:
+          tool: just
+      - name: Install yamlfmt
+        run: go install github.com/google/yamlfmt/cmd/yamlfmt@v0.21.0
+      - name: Check formatting
+        run: just check-fmt
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.MSRV }}
+          components: clippy
+      - name: Install clippy-sarif and sarif-fmt
+        # These crates aren't in taiki-e/install-action's tool manifest, so it
+        # would fall back to cargo-binstall by default — which hits
+        # https://github.com/Swatinem/rust-cache/issues/204 (stale metadata).
+        # Forcing the cargo-install fallback builds from source; slower on a
+        # cold cache but correct, and rust-cache handles the target artifacts.
+        uses: taiki-e/install-action@74e87cbfa15a59692b158178d8905a61bf6fca95 # v2.75.20
+        with:
+          tool: clippy-sarif,sarif-fmt
+          fallback: cargo-install
+        if: github.event.repository.visibility == 'public'
+      - name: Check (SARIF)
+        run: >
+          cargo clippy --workspace --all-features --all-targets --message-format=json | clippy-sarif | tee clippy-results.sarif | sarif-fmt
+
+        continue-on-error: true
+        if: github.event.repository.visibility == 'public'
+      - name: Upload
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          sarif_file: clippy-results.sarif
+          wait-for-processing: true
+        if: github.event.repository.visibility == 'public'
+      - name: Check
+        run: cargo clippy --workspace --all-features --all-targets --keep-going -- -D warnings --allow deprecated
+  coverage:
+    name: Coverage
+    environment: codecov
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+          cargo-nextest: "true"
+          cargo-llvm-cov: "true"
+      - name: Inventory tests
+        id: test_inventory
+        run: |
+          cargo nextest list --workspace --all-features --tests --message-format json > nextest-list.json
+          count="$(sed -n 's/.*"test-count":\([0-9][0-9]*\).*/\1/p' nextest-list.json | head -n1)"
+          echo "count=${count:-0}" >> "$GITHUB_OUTPUT"
+      - name: Skip coverage
+        if: steps.test_inventory.outputs.count == '0'
+        run: |
+          echo "No tests discovered; skipping coverage generation." >> "$GITHUB_STEP_SUMMARY"
+      - name: Gather coverage
+        if: steps.test_inventory.outputs.count != '0'
+        run: cargo llvm-cov nextest --workspace --all-features --tests --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        if: steps.test_inventory.outputs.count != '0'
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info

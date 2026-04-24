@@ -8,9 +8,13 @@ clean:
 
 fmt *flags:
     cargo fmt --all {{ flags }}
+    taplo fmt
+    yamlfmt .
 
 check-fmt:
     cargo fmt --all -- --check
+    taplo fmt --check
+    yamlfmt -lint .
 
 clippy *flags:
     cargo clippy --all-targets {{ flags }} -- -D warnings
@@ -25,7 +29,7 @@ check-pre-commit:
 lint: check-fmt clippy check-deny check-pre-commit
 
 test *flags:
-    cargo nextest run {{ flags }}
+    cargo nextest run --cargo-profile testing {{ flags }}
 
 doc *flags:
     RUSTDOCFLAGS="--cfg docsrs" cargo doc --all-features --no-deps --document-private-items --keep-going {{ flags }}
@@ -44,7 +48,7 @@ _assert-clean:
 
 # Auto-fix formatting and lint warnings (requires clean working tree)
 fix: _assert-clean
-    cargo fmt --all
+    just fmt
     cargo fix --workspace --allow-dirty --allow-staged
     cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
 

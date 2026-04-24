@@ -1,11 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "tests/testsuite"]
+members = ["crates/*", "tests/integration"]
 
 [workspace.package]
 repository = "https://github.com/MikeIvanichev/foundation.git"
 edition = "2024"
-rust-version = "1.94.0"
+# LINT.IfChange(msrv)
+rust-version = "1.95.0"
+# LINT.ThenChange(//.github/workflows/ci.yaml:msrv)
 publish = false
 
 [workspace.dependencies]
@@ -88,6 +90,7 @@ url = { version = "2.5.8", default-features = false, features = [
 ] }
 
 [workspace.lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
 unnameable_types = "warn"
 unreachable_pub = "warn"
 unsafe_op_in_unsafe_fn = "warn"
@@ -100,6 +103,7 @@ bool_assert_comparison = "allow"
 branches_sharing_code = "allow"
 checked_conversions = "warn"
 collapsible_else_if = "allow"
+collapsible_match = "allow"
 create_dir = "warn"
 dbg_macro = "warn"
 debug_assert_with_mut_call = "warn"
@@ -157,13 +161,6 @@ verbose_file_reads = "warn"
 wildcard_imports = "warn"
 zero_sized_map_values = "warn"
 
-[profile.dev]
-debug = "line-tables-only"
-panic = "abort"
-
-[profile.dev.package."*"]
-debug = false
-
 [profile.release]
 opt-level = 3
 strip = true
@@ -171,6 +168,19 @@ panic = "abort"
 codegen-units = 1
 lto = true
 
+[profile.dev]
+debug = "line-tables-only"
+panic = "abort"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.debugging]
 inherits = "dev"
 debug = true
+
+[profile.testing]
+inherits = "dev"
+
+[profile.testing.package."*"]
+opt-level = 3
