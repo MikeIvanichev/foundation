@@ -1,6 +1,6 @@
 ---
 source: crates/foundation/tests/config_snapshots.rs
-expression: "Render::new(\"\").template::<SimpleConfig>()"
+expression: out
 ---
 # Service display name.
 # env: NAME

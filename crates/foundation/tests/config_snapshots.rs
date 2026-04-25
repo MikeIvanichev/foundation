@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use foundation::config::Render;
+use foundation::config::Renderer;
 use foundation_macros::FoundationConfig;
 use url::Url;
 
@@ -34,6 +34,7 @@ fn default_simple_name() -> String {
     "foundation".to_owned()
 }
 
+#[allow(dead_code)]
 #[derive(Debug, FoundationConfig)]
 struct ComplexConfig {
     /// Human-readable service name.
@@ -52,6 +53,7 @@ struct ComplexConfig {
     gateway: GatewayConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct LoggingConfig {
     /// Enables JSON logs.
@@ -67,6 +69,7 @@ struct LoggingConfig {
     extra_targets: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct GatewayConfig {
     /// Public HTTP gateway.
@@ -78,6 +81,7 @@ struct GatewayConfig {
     listener: ListenerConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct HttpGatewayConfig {
     /// Primary upstream endpoint.
@@ -85,6 +89,7 @@ struct HttpGatewayConfig {
     endpoint: EndpointConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, FoundationConfig)]
 struct EndpointConfig {
     /// Base URL for upstream requests.
@@ -100,6 +105,7 @@ impl Default for EndpointConfig {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct ListenerConfig {
     /// HTTP listener configuration.
@@ -112,6 +118,7 @@ struct ListenerConfig {
     tcp: Option<ListenerBinding>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default, FoundationConfig)]
 struct ListenerBinding {
     /// Bind address for the listener.
@@ -132,46 +139,70 @@ fn default_upstream_url() -> Url {
 
 #[test]
 fn render_simple_template() {
-    insta::assert_snapshot!(Render::new("APP").template::<SimpleConfig>());
+    let mut out = Vec::new();
+    Renderer::new("APP")
+        .write_template::<SimpleConfig>(&mut out)
+        .expect("render template");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_simple_defaults() {
-    insta::assert_snapshot!(Render::new("APP").defaults::<SimpleConfig>());
+    let mut out = Vec::new();
+    Renderer::new("APP")
+        .write_defaults::<SimpleConfig>(&mut out)
+        .expect("render defaults");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_simple_required() {
-    insta::assert_snapshot!(Render::new("APP").required::<SimpleConfig>());
+    let mut out = Vec::new();
+    Renderer::new("APP")
+        .write_required::<SimpleConfig>(&mut out)
+        .expect("render required");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_complex_template() {
-    insta::assert_snapshot!(Render::new("FOUNDATION").template::<ComplexConfig>());
+    let mut out = Vec::new();
+    Renderer::new("FOUNDATION")
+        .write_template::<ComplexConfig>(&mut out)
+        .expect("render template");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_complex_defaults() {
-    insta::assert_snapshot!(Render::new("FOUNDATION").defaults::<ComplexConfig>());
+    let mut out = Vec::new();
+    Renderer::new("FOUNDATION")
+        .write_defaults::<ComplexConfig>(&mut out)
+        .expect("render defaults");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_complex_required() {
-    insta::assert_snapshot!(Render::new("FOUNDATION").required::<ComplexConfig>());
-}
-
-#[test]
-fn render_required_fields_list() {
-    let fields = Render::new("FOUNDATION").required_fields::<ComplexConfig>();
-    let listing = fields
-        .iter()
-        .map(|field| format!("{} (env: {})", field.path, field.env.as_str()))
-        .collect::<Vec<_>>()
-        .join("\n");
-    insta::assert_snapshot!(listing);
+    let mut out = Vec::new();
+    Renderer::new("FOUNDATION")
+        .write_required::<ComplexConfig>(&mut out)
+        .expect("render required");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
 fn render_no_prefix_template() {
-    insta::assert_snapshot!(Render::new("").template::<SimpleConfig>());
+    let mut out = Vec::new();
+    Renderer::new("")
+        .write_template::<SimpleConfig>(&mut out)
+        .expect("render template");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+    insta::assert_snapshot!(out);
 }

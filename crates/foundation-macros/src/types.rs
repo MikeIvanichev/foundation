@@ -4,22 +4,22 @@ use syn::Type;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct FieldTypeInfo {
-    pub(crate) nested: bool,
-    pub(crate) optional: bool,
+    pub(crate) is_nested: bool,
+    pub(crate) is_optional: bool,
 }
 
 impl FieldTypeInfo {
-    const fn leaf(optional: bool) -> Self {
+    const fn leaf(is_optional: bool) -> Self {
         Self {
-            nested: false,
-            optional,
+            is_nested: false,
+            is_optional,
         }
     }
 
-    const fn nested(optional: bool) -> Self {
+    const fn nested(is_optional: bool) -> Self {
         Self {
-            nested: true,
-            optional,
+            is_nested: true,
+            is_optional,
         }
     }
 }
@@ -45,8 +45,8 @@ pub(crate) fn classify_type(ty: &Type) -> FieldTypeInfo {
         "Option" => extract_single_type_argument(ty)
             .map(classify_type)
             .map(|inner| FieldTypeInfo {
-                nested: inner.nested,
-                optional: true,
+                is_nested: inner.is_nested,
+                is_optional: true,
             })
             .unwrap_or_else(|| FieldTypeInfo::leaf(false)),
         "Vec" | "VecDeque" | "LinkedList" | "BinaryHeap" | "BTreeSet" | "HashSet" | "BTreeMap"

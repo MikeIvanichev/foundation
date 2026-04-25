@@ -2,7 +2,7 @@ use std::io;
 use std::io::Write as _;
 use std::process::ExitCode;
 
-use foundation::config::Render;
+use foundation::config::Renderer;
 use foundation::service_info;
 use foundation_macros::FoundationConfig;
 use url::Url;
@@ -26,6 +26,7 @@ struct ExampleConfig {
     gateway: GatewayConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, FoundationConfig)]
 struct LoggingConfig {
     /// Enables JSON logs.
@@ -51,6 +52,7 @@ impl Default for LoggingConfig {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct GatewayConfig {
     /// Public HTTP gateway.
@@ -62,6 +64,7 @@ struct GatewayConfig {
     listener: ListenerConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct HttpGatewayConfig {
     /// Primary upstream endpoint.
@@ -69,6 +72,7 @@ struct HttpGatewayConfig {
     endpoint: EndpointConfig,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, FoundationConfig)]
 struct EndpointConfig {
     /// Base URL for upstream requests.
@@ -84,6 +88,7 @@ impl Default for EndpointConfig {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, FoundationConfig)]
 struct ListenerConfig {
     /// HTTP listener configuration.
@@ -96,6 +101,7 @@ struct ListenerConfig {
     tcp: Option<ListenerBinding>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default, FoundationConfig)]
 struct ListenerBinding {
     /// Bind address for the listener.
@@ -146,32 +152,15 @@ fn try_main() -> Result<(), String> {
 
     match command {
         "template" => {
-            write!(
-                stdout,
-                "{}",
-                Render::for_service(&service_info).template::<ExampleConfig>()
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(())
+            Renderer::for_service(&service_info).write_template::<ExampleConfig>(&mut stdout)
         }
         "defaults" => {
-            write!(
-                stdout,
-                "{}",
-                Render::for_service(&service_info).defaults::<ExampleConfig>()
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(())
+            Renderer::for_service(&service_info).write_defaults::<ExampleConfig>(&mut stdout)
         }
         "required" => {
-            write!(
-                stdout,
-                "{}",
-                Render::for_service(&service_info).required::<ExampleConfig>()
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(())
+            Renderer::for_service(&service_info).write_required::<ExampleConfig>(&mut stdout)
         }
-        _ => Err(format!("unsupported config subcommand `{command}`")),
+        _ => return Err(format!("unsupported config subcommand `{command}`")),
     }
+    .map_err(|error| error.to_string())
 }

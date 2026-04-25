@@ -1,6 +1,6 @@
 ---
 source: crates/foundation/tests/config_snapshots.rs
-expression: "Render::new(\"FOUNDATION\").template::<ComplexConfig>()"
+expression: out
 ---
 # Human-readable service name.
 # env: FOUNDATION__SERVICE_NAME

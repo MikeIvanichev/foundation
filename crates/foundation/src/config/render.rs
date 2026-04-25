@@ -1,4 +1,4 @@
-use std::fmt::Write as _;
+use std::io;
 
 use foundation_types::config::ConfigSchema;
 use foundation_types::config::Field;
@@ -8,308 +8,249 @@ use foundation_types::config::Schema;
 
 use crate::ServiceInfo;
 
-use super::DEFAULT_ENV_PREFIX;
-
-/// A computed environment variable name.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EnvName(String);
-
-impl EnvName {
-    #[must_use]
-    pub fn new(prefix: &str, path: &Path) -> Self {
-        let mut name = prefix.to_ascii_uppercase();
-
-        let mut keys = path.keys().peekable();
-        if !name.is_empty() && keys.peek().is_some() {
-            name.push_str("__");
-        }
-
-        let mut first = true;
-        for key in keys {
-            if !first {
-                name.push_str("__");
-            }
-            name.push_str(&key.to_ascii_uppercase());
-            first = false;
-        }
-
-        Self(name)
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// Rendering mode for config output.
+/// Writes schema-derived config views for one env-prefix convention.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RenderMode {
-    Defaults,
-    Required,
-    Template,
-}
-
-/// Required-field metadata for CLI output.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RequiredField {
-    pub path: Path,
-    pub env: EnvName,
-    pub docs: &'static [&'static str],
-}
-
-/// Renders schema-derived config views for one env-prefix convention.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Render<'a> {
+pub struct Renderer<'a> {
     env_prefix: &'a str,
 }
 
-impl Default for Render<'static> {
-    fn default() -> Self {
-        Self::new(DEFAULT_ENV_PREFIX)
-    }
-}
-
-impl<'a> Render<'a> {
+impl<'a> Renderer<'a> {
     #[must_use]
     pub const fn new(env_prefix: &'a str) -> Self {
         Self { env_prefix }
     }
 
     #[must_use]
-    pub fn for_service(service_info: &'a ServiceInfo) -> Self {
-        Self::new(&service_info.config_env_prefix)
+    pub const fn for_service(service_info: &'a ServiceInfo) -> Self {
+        Self::new(service_info.env_prefix.as_str())
     }
 
-    #[must_use]
-    pub fn defaults<T>(self) -> String
+    pub fn write_template<T>(self, out: &mut (impl io::Write + ?Sized)) -> io::Result<()>
     where
         T: ConfigSchema,
     {
-        self.render::<T>(RenderMode::Defaults)
+        self.write::<T>(out, RenderMode::Template)
     }
 
-    #[must_use]
-    pub fn template<T>(self) -> String
+    pub fn write_defaults<T>(self, out: &mut (impl io::Write + ?Sized)) -> io::Result<()>
     where
         T: ConfigSchema,
     {
-        self.render::<T>(RenderMode::Template)
+        self.write::<T>(out, RenderMode::Defaults)
     }
 
-    #[must_use]
-    pub fn required_fields<T>(self) -> Vec<RequiredField>
+    pub fn write_required<T>(self, out: &mut (impl io::Write + ?Sized)) -> io::Result<()>
     where
         T: ConfigSchema,
     {
-        RequiredFieldCollector::new(self.env_prefix).collect::<T>()
+        self.write::<T>(out, RenderMode::Required)
     }
 
-    #[must_use]
-    pub fn required<T>(self) -> String
+    fn write<T>(self, out: &mut (impl io::Write + ?Sized), mode: RenderMode) -> io::Result<()>
     where
         T: ConfigSchema,
     {
-        self.render::<T>(RenderMode::Required)
+        let mut path = Path::new();
+        self.write_schema(out, &T::schema(), &mut path, RenderState::new(mode))?;
+        out.write_all(b"\n")
     }
 
-    fn render<T>(self, mode: RenderMode) -> String
-    where
-        T: ConfigSchema,
-    {
-        let mut rendered =
-            YamlRenderer::new(mode, self.env_prefix).render_schema(&T::schema(), &Path::new(), 0);
-        rendered.push('\n');
-        rendered
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Required field collection
-// ---------------------------------------------------------------------------
-
-struct RequiredFieldCollector<'a> {
-    env_prefix: &'a str,
-    fields: Vec<RequiredField>,
-}
-
-impl<'a> RequiredFieldCollector<'a> {
-    fn new(env_prefix: &'a str) -> Self {
-        Self {
-            env_prefix,
-            fields: Vec::new(),
-        }
-    }
-
-    fn collect<T>(mut self) -> Vec<RequiredField>
-    where
-        T: ConfigSchema,
-    {
-        self.collect_schema(&T::schema(), &Path::new(), true);
-        self.fields
-    }
-
-    fn collect_schema(&mut self, schema: &Schema, parent: &Path, parent_required: bool) {
-        for field in &schema.fields {
-            let path = parent.with_key(field.key);
-            let required_here = parent_required && field.required;
-
-            match &field.kind {
-                FieldKind::Leaf { .. } => {
-                    if required_here {
-                        self.fields.push(RequiredField {
-                            path: path.clone(),
-                            env: EnvName::new(self.env_prefix, &path),
-                            docs: field.docs,
-                        });
-                    }
-                }
-                FieldKind::Nested { schema } => {
-                    self.collect_schema(schema, &path, required_here);
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// YAML template/defaults/required rendering
-// ---------------------------------------------------------------------------
-
-struct YamlRenderer<'a> {
-    mode: RenderMode,
-    env_prefix: &'a str,
-}
-
-impl<'a> YamlRenderer<'a> {
-    fn new(mode: RenderMode, env_prefix: &'a str) -> Self {
-        Self { mode, env_prefix }
-    }
-
-    fn render_schema(&self, schema: &Schema, parent: &Path, indent: usize) -> String {
-        self.render_fields(schema, parent, indent, true)
-            .join("\n\n")
-    }
-
-    fn render_fields(
-        &self,
+    fn write_schema(
+        self,
+        out: &mut (impl io::Write + ?Sized),
         schema: &Schema,
-        parent: &Path,
-        indent: usize,
-        parent_required: bool,
-    ) -> Vec<String> {
-        let mut sections = Vec::new();
+        path: &mut Path,
+        state: RenderState,
+    ) -> io::Result<bool> {
+        let mut wrote_field = false;
 
         for field in &schema.fields {
-            let path = parent.with_key(field.key);
-            if let Some(section) = self.render_field(field, &path, indent, parent_required) {
-                sections.push(section);
+            path.push(field.key);
+            if self.field_would_render(field, path, state.parent_required, state.mode) {
+                if wrote_field {
+                    out.write_all(b"\n\n")?;
+                }
+                self.write_field(out, field, path, state)?;
+                wrote_field = true;
             }
+            let _ = path.pop();
         }
 
-        sections
+        Ok(wrote_field)
     }
 
-    fn render_field(
-        &self,
+    fn write_field(
+        self,
+        out: &mut (impl io::Write + ?Sized),
         field: &Field,
-        path: &Path,
-        indent: usize,
-        parent_required: bool,
-    ) -> Option<String> {
+        path: &mut Path,
+        state: RenderState,
+    ) -> io::Result<()> {
         match &field.kind {
-            FieldKind::Nested { schema } => {
-                self.render_section(field, schema, path, indent, parent_required)
-            }
-            FieldKind::Leaf { .. } => self.render_leaf(field, path, indent, parent_required),
+            FieldKind::Nested { schema } => self.write_section(out, field, schema, path, state),
+            FieldKind::Leaf { .. } => self.write_leaf(out, field, path, state),
         }
     }
 
-    fn render_section(
-        &self,
+    fn write_section(
+        self,
+        out: &mut (impl io::Write + ?Sized),
         field: &Field,
         nested: &Schema,
-        path: &Path,
-        indent: usize,
-        parent_required: bool,
-    ) -> Option<String> {
-        let body = self
-            .render_fields(nested, path, indent + 2, parent_required && field.required)
-            .join("\n\n");
-        if matches!(self.mode, RenderMode::Defaults | RenderMode::Required) && body.is_empty() {
-            return None;
+        path: &mut Path,
+        state: RenderState,
+    ) -> io::Result<()> {
+        let child_state = state.child(field.required);
+        let has_body =
+            self.schema_would_render(nested, path, child_state.parent_required, state.mode);
+
+        write_doc_lines(out, state.indent, field.docs)?;
+        write!(out, "{}{}:", " ".repeat(state.indent), field.key)?;
+
+        if has_body {
+            out.write_all(b"\n\n")?;
+            self.write_schema(out, nested, path, child_state)?;
         }
 
-        let mut out = render_doc_lines(field.docs, indent);
-        let _ = write!(out, "{}{}:", " ".repeat(indent), field.key);
-        if !body.is_empty() {
-            out.push_str("\n\n");
-            out.push_str(&body);
-        }
-        Some(out)
+        Ok(())
     }
 
-    fn render_leaf(
-        &self,
+    fn write_leaf(
+        self,
+        out: &mut (impl io::Write + ?Sized),
         field: &Field,
         path: &Path,
-        indent: usize,
-        parent_required: bool,
-    ) -> Option<String> {
-        let required_here = parent_required && field.required;
+        state: RenderState,
+    ) -> io::Result<()> {
+        let required_here = state.parent_required && field.required;
 
-        match self.mode {
-            RenderMode::Defaults if field.default_yaml().is_none() => return None,
-            RenderMode::Required if !required_here => return None,
-            _ => {}
+        write_doc_lines(out, state.indent, field.docs)?;
+        write_env_comment(out, state.indent, self.env_prefix, path)?;
+
+        if required_here && matches!(state.mode, RenderMode::Template | RenderMode::Required) {
+            return write!(out, "{}{}: <required>", " ".repeat(state.indent), field.key);
         }
 
-        let mut out = String::new();
-        write_doc_lines_into(&mut out, indent, field.docs);
-        write_env_comment(&mut out, indent, self.env_prefix, path);
-
-        if required_here && matches!(self.mode, RenderMode::Template | RenderMode::Required) {
-            let _ = write!(out, "{}{}: <required>", " ".repeat(indent), field.key);
-            return Some(out);
-        }
-
-        let default = field.default_yaml()?;
+        let default = field
+            .default_yaml()
+            .expect("leaf renderability checked before writing");
 
         if default.contains('\n') {
-            let _ = write!(out, "{}{}:", " ".repeat(indent), field.key);
+            write!(out, "{}{}:", " ".repeat(state.indent), field.key)?;
             let trimmed = default.trim_end();
             if !trimmed.is_empty() {
-                out.push('\n');
+                out.write_all(b"\n")?;
                 for (index, line) in trimmed.lines().enumerate() {
                     if index > 0 {
-                        out.push('\n');
+                        out.write_all(b"\n")?;
                     }
-                    let _ = write!(out, "{}{}", " ".repeat(indent + 2), line);
+                    write!(out, "{}{}", " ".repeat(state.indent + 2), line)?;
                 }
             }
         } else {
-            let _ = write!(out, "{}{}: {}", " ".repeat(indent), field.key, default);
+            write!(
+                out,
+                "{}{}: {}",
+                " ".repeat(state.indent),
+                field.key,
+                default
+            )?;
         }
 
-        Some(out)
+        Ok(())
+    }
+
+    fn schema_would_render(
+        self,
+        schema: &Schema,
+        path: &mut Path,
+        parent_required: bool,
+        mode: RenderMode,
+    ) -> bool {
+        schema.fields.iter().any(|field| {
+            path.push(field.key);
+            let would_render = self.field_would_render(field, path, parent_required, mode);
+            let _ = path.pop();
+            would_render
+        })
+    }
+
+    fn field_would_render(
+        self,
+        field: &Field,
+        path: &mut Path,
+        parent_required: bool,
+        mode: RenderMode,
+    ) -> bool {
+        let required_here = parent_required && field.required;
+
+        match &field.kind {
+            FieldKind::Leaf { .. } => match mode {
+                RenderMode::Defaults => field.default_yaml().is_some(),
+                RenderMode::Required => required_here,
+                RenderMode::Template => required_here || field.default_yaml().is_some(),
+            },
+            FieldKind::Nested { schema } => {
+                matches!(mode, RenderMode::Template)
+                    || self.schema_would_render(schema, path, required_here, mode)
+            }
+        }
     }
 }
 
-fn render_doc_lines(docs: &[&'static str], indent: usize) -> String {
-    let mut out = String::new();
-    write_doc_lines_into(&mut out, indent, docs);
-    out
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RenderMode {
+    Defaults,
+    Required,
+    Template,
 }
 
-fn write_doc_lines_into(out: &mut String, indent: usize, docs: &[&str]) {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct RenderState {
+    indent: usize,
+    parent_required: bool,
+    mode: RenderMode,
+}
+
+impl RenderState {
+    const fn new(mode: RenderMode) -> Self {
+        Self {
+            indent: 0,
+            parent_required: true,
+            mode,
+        }
+    }
+
+    const fn child(self, field_required: bool) -> Self {
+        Self {
+            indent: self.indent + 2,
+            parent_required: self.parent_required && field_required,
+            mode: self.mode,
+        }
+    }
+}
+
+fn write_doc_lines(
+    out: &mut (impl io::Write + ?Sized),
+    indent: usize,
+    docs: &[&str],
+) -> io::Result<()> {
     for doc in docs {
-        let _ = writeln!(out, "{}# {}", " ".repeat(indent), doc);
+        writeln!(out, "{}# {}", " ".repeat(indent), doc)?;
     }
+    Ok(())
 }
 
-fn write_env_comment(out: &mut String, indent: usize, env_prefix: &str, path: &Path) {
-    let env = EnvName::new(env_prefix, path);
-    if !env.as_str().is_empty() {
-        let _ = writeln!(out, "{}# env: {}", " ".repeat(indent), env.as_str());
+fn write_env_comment(
+    out: &mut (impl io::Write + ?Sized),
+    indent: usize,
+    env_prefix: &str,
+    path: &Path,
+) -> io::Result<()> {
+    if !env_prefix.is_empty() || !path.is_empty() {
+        write!(out, "{}# env: ", " ".repeat(indent))?;
+        path.write_env_with_prefix(out, env_prefix)?;
+        out.write_all(b"\n")?;
     }
+    Ok(())
 }

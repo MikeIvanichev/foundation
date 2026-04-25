@@ -20,55 +20,66 @@ pub use jemalloc::MALLOC_CONF;
 
 #[cfg(feature = "config")]
 #[cfg_attr(docsrs, doc(cfg(feature = "config")))]
-pub use foundation_types as config_types;
+pub use foundation_types;
 
-/// Basic service metadata.
+/// Metadata that identifies a service across foundation systems.
+///
+/// This is usually created with [`service_info!`], but can be constructed
+/// directly when a service needs custom identifiers.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ServiceInfo {
-    /// Human-readable service name.
+    /// The name of the service.
     pub name: &'static str,
-    /// Service identifier as used in metrics.
+    /// The service identifier as used in metrics.
+    ///
+    /// Usually the same as [`ServiceInfo::name`], with hyphens (`-`) replaced
+    /// by underscores (`_`).
     pub name_in_metrics: String,
-    /// Service version.
+    /// The environment variable prefix used for service configuration.
+    ///
+    /// Usually derived from [`ServiceInfo::name`] by converting ASCII letters
+    /// to uppercase and replacing hyphens (`-`) and underscores (`_`) with
+    /// double underscores (`__`).
+    pub env_prefix: String,
+    /// The version of the service.
     pub version: &'static str,
-    /// Service author.
+    /// The service author.
     pub author: &'static str,
-    /// Service description.
+    /// The description of the service.
     pub description: &'static str,
-    /// Canonical env prefix used for configuration overlays.
-    pub config_env_prefix: String,
 }
 
-impl ServiceInfo {
-    /// Returns the canonical env prefix for the service.
-    #[must_use]
-    pub fn conventional_config_env_prefix(name: &str) -> String {
-        let mut prefix = String::with_capacity(name.len());
-
-        for ch in name.chars() {
-            match ch {
-                '-' | '_' => prefix.push_str("__"),
-                ch => prefix.push(ch.to_ascii_uppercase()),
-            }
-        }
-
-        prefix
-    }
-}
-
-/// Creates [`ServiceInfo`] from the active package manifest.
+/// Creates [`ServiceInfo`] from the `Cargo.toml` manifest of the calling
+/// service.
+///
+/// [`ServiceInfo::name`] is set to the package name.
+/// [`ServiceInfo::name_in_metrics`] is the package name with hyphens (`-`)
+/// replaced by underscores (`_`).
+/// [`ServiceInfo::env_prefix`] is the package name converted to ASCII
+/// uppercase, with hyphens (`-`) and underscores (`_`) replaced by double
+/// underscores (`__`).
 #[macro_export]
 macro_rules! service_info {
     () => {
         $crate::ServiceInfo {
             name: env!("CARGO_PKG_NAME"),
             name_in_metrics: env!("CARGO_PKG_NAME").replace('-', "_"),
+            env_prefix: {
+                let name = env!("CARGO_PKG_NAME");
+                let mut prefix = String::with_capacity(name.len());
+
+                for ch in name.chars() {
+                    match ch {
+                        '-' | '_' => prefix.push_str("__"),
+                        ch => prefix.push(ch.to_ascii_uppercase()),
+                    }
+                }
+
+                prefix
+            },
             version: env!("CARGO_PKG_VERSION"),
             author: env!("CARGO_PKG_AUTHORS"),
             description: env!("CARGO_PKG_DESCRIPTION"),
-            config_env_prefix: $crate::ServiceInfo::conventional_config_env_prefix(env!(
-                "CARGO_PKG_NAME"
-            )),
         }
     };
 }

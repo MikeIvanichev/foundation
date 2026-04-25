@@ -14,6 +14,9 @@ fn default_pool_size() -> u16 {
 #[derive(Debug, FoundationConfig)]
 #[serde(rename_all = "kebab-case")]
 struct DatabaseConfig {
+    /// Primary database URL.
+    url: String,
+
     /// Maximum connection pool size.
     #[serde(default = "default_pool_size")]
     pool_size: u16,
@@ -39,6 +42,10 @@ struct ServiceConfig {
     #[serde(flatten)]
     database: DatabaseConfig,
 
+    /// Optional read-only database settings exposed at the top level.
+    #[serde(flatten)]
+    read_only_database: Option<DatabaseConfig>,
+
     /// Optional per-tenant database overrides.
     tenant_database: Option<DatabaseConfig>,
 
@@ -61,7 +68,7 @@ struct DeserializeNamingConfig {
 fn derive_emits_schema_metadata_for_named_structs() {
     let schema = ServiceConfig::schema();
 
-    assert_eq!(schema.fields.len(), 5);
+    assert_eq!(schema.fields.len(), 9);
 
     let service_name = &schema.fields[0];
     assert_eq!(service_name.key, "service-name");
@@ -70,12 +77,20 @@ fn derive_emits_schema_metadata_for_named_structs() {
     assert!(matches!(service_name.kind, FieldKind::Leaf { .. }));
     assert!(!service_name.required);
 
-    let pool_size = &schema.fields[2];
+    let url = &schema.fields[2];
+    assert_eq!(url.key, "url");
+    assert!(url.required);
+
+    let pool_size = &schema.fields[3];
     assert_eq!(pool_size.key, "pool-size");
     assert_eq!(pool_size.default_yaml(), Some("16"));
     assert!(!pool_size.required);
 
-    let tenant_database = &schema.fields[4];
+    let optional_flattened_url = &schema.fields[5];
+    assert_eq!(optional_flattened_url.key, "url");
+    assert!(!optional_flattened_url.required);
+
+    let tenant_database = &schema.fields[8];
     assert!(matches!(tenant_database.kind, FieldKind::Nested { .. }));
     assert!(tenant_database.default_yaml().is_none());
     assert!(!tenant_database.required);
@@ -87,9 +102,13 @@ fn derive_records_leaf_defaults_as_yaml_fragments() {
 
     assert_eq!(schema.fields[0].default_yaml(), Some("foundation"));
     assert_eq!(schema.fields[1].default_yaml(), Some("false"));
-    assert_eq!(schema.fields[2].default_yaml(), Some("16"));
-    assert_eq!(schema.fields[3].default_yaml(), Some("[]"));
-    assert!(schema.fields[4].default_yaml().is_none());
+    assert!(schema.fields[2].default_yaml().is_none());
+    assert_eq!(schema.fields[3].default_yaml(), Some("16"));
+    assert_eq!(schema.fields[4].default_yaml(), Some("[]"));
+    assert!(schema.fields[5].default_yaml().is_none());
+    assert_eq!(schema.fields[6].default_yaml(), Some("16"));
+    assert_eq!(schema.fields[7].default_yaml(), Some("[]"));
+    assert!(schema.fields[8].default_yaml().is_none());
 }
 
 #[test]

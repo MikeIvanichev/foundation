@@ -42,11 +42,13 @@ opentelemetry-semantic-conventions = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde-saphyr = { workspace = true, optional = true }
-tikv-jemallocator = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 tracing-opentelemetry = { workspace = true, optional = true }
 tracing-panic = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta = { version = "1.46.3", features = ["redactions"] }

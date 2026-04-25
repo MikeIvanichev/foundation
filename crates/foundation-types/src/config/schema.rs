@@ -24,6 +24,26 @@ pub struct Field {
     pub kind: FieldKind,
 }
 
+impl Field {
+    /// Returns the YAML default for this field when it is a leaf.
+    #[must_use]
+    pub fn default_yaml(&self) -> Option<&str> {
+        match &self.kind {
+            FieldKind::Leaf { default_yaml } => default_yaml.as_deref(),
+            FieldKind::Nested { .. } => None,
+        }
+    }
+
+    /// Returns the child schema for this field when it is nested.
+    #[must_use]
+    pub fn nested_schema(&self) -> Option<&Schema> {
+        match &self.kind {
+            FieldKind::Leaf { .. } => None,
+            FieldKind::Nested { schema } => Some(schema),
+        }
+    }
+}
+
 /// Variant-specific metadata for one documented configuration field.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FieldKind {
@@ -37,31 +57,4 @@ pub enum FieldKind {
         /// Nested documentation metadata for structured values.
         schema: Box<Schema>,
     },
-}
-
-impl Field {
-    /// Returns the rendered YAML default for a leaf field.
-    #[must_use]
-    pub fn default_yaml(&self) -> Option<&str> {
-        match &self.kind {
-            FieldKind::Leaf { default_yaml } => default_yaml.as_deref(),
-            FieldKind::Nested { .. } => None,
-        }
-    }
-
-    /// Returns nested schema metadata when the field is structured.
-    #[must_use]
-    pub fn nested(&self) -> Option<&Schema> {
-        match &self.kind {
-            FieldKind::Leaf { .. } => None,
-            FieldKind::Nested { schema } => Some(schema),
-        }
-    }
-
-    /// Applies a parent required-state to this field.
-    #[must_use]
-    pub fn under_required_parent(mut self, parent_required: bool) -> Self {
-        self.required = self.required && parent_required;
-        self
-    }
 }

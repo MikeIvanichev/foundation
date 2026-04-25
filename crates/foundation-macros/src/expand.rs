@@ -1,10 +1,11 @@
+use std::collections::BTreeMap;
+
 use proc_macro2::Span;
 use quote::quote;
 use serde_derive_internals::Ctxt;
 use serde_derive_internals::Derive;
 use serde_derive_internals::ast;
 use serde_derive_internals::attr;
-use std::collections::BTreeMap;
 use syn::DeriveInput;
 use syn::ExprPath;
 use syn::Member;
@@ -13,7 +14,7 @@ use syn::spanned::Spanned;
 
 use crate::docs::extract_docs;
 use crate::output::DeriveOutput;
-use crate::output::ErrorStore;
+use crate::types::FieldTypeInfo;
 use crate::types::classify_type;
 use crate::types::extract_single_type_argument;
 
@@ -21,7 +22,7 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
     let ident = input.ident.clone();
     let generics = input.generics.clone();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let mut errors = ErrorStore::default();
+    let mut errors = Vec::new();
     let cx = Ctxt::new();
     let parsed = ast::Container::from_ast(&cx, &input, Derive::Deserialize);
     if let Err(error) = cx.check() {
@@ -31,7 +32,7 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
     let Some(container) = parsed else {
         return DeriveOutput {
             tokens: None,
-            errors: errors.into_vec(),
+            errors,
         };
     };
     let fields = match &container.data {
@@ -43,7 +44,7 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
             ));
             return DeriveOutput {
                 tokens: None,
-                errors: errors.into_vec(),
+                errors,
             };
         }
         ast::Data::Enum(_) => {
@@ -53,12 +54,12 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
             ));
             return DeriveOutput {
                 tokens: None,
-                errors: errors.into_vec(),
+                errors,
             };
         }
     };
-    let mut field_stmts = Vec::new();
-    let mut direct_keys = BTreeMap::<String, Span>::new();
+    let mut field_tokens = Vec::new();
+    let mut direct_field_keys = BTreeMap::<String, Span>::new();
 
     for field in fields {
         let Member::Named(field_ident) = &field.member else {
@@ -75,11 +76,12 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
 
         let field_name = field_ident.to_string();
         let key = field.attrs.name().deserialize_name().to_owned();
-        let kind = classify_type(field.ty);
-        let nested_ty = nested_type(field.ty, kind);
+        let type_info = classify_type(field.ty);
+        let nested_config_ty = nested_config_type(field.ty, type_info);
         let flatten = field.attrs.flatten();
 
-        if !flatten && let Some(existing_span) = direct_keys.insert(key.clone(), field_ident.span())
+        if !flatten
+            && let Some(existing_span) = direct_field_keys.insert(key.clone(), field_ident.span())
         {
             errors.push(syn::Error::new(
                 field_ident.span(),
@@ -91,35 +93,33 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
             ));
         }
 
-        if flatten && nested_ty.is_none() {
+        if flatten && nested_config_ty.is_none() {
             errors.push(syn::Error::new(
                 field.ty.span(),
                 "#[serde(flatten)] is only supported on nested config structs",
             ));
         }
 
-        let default = match field.attrs.default() {
-            attr::Default::None => FieldDefault::None,
-            attr::Default::Default => FieldDefault::Trait,
-            attr::Default::Path(path) => FieldDefault::Path(path.clone()),
+        let default_source = match field.attrs.default() {
+            attr::Default::None => DefaultSource::None,
+            attr::Default::Default => DefaultSource::Trait,
+            attr::Default::Path(path) => DefaultSource::Path(path.clone()),
         };
 
-        let has_default = !matches!(default, FieldDefault::None);
-        let nested = nested_ty.is_some();
-        let required = !has_default && !kind.optional;
-        match schema_field_stmt(&SchemaFieldStmtArgs {
+        let has_default = !matches!(default_source, DefaultSource::None);
+        let required = !has_default && !type_info.is_optional;
+        match schema_field_tokens(&SchemaFieldTokens {
             rust_name: &field_name,
             key: &key,
             docs: &extract_docs(&field.original.attrs),
             ty: field.ty,
-            nested,
             flatten,
-            default: &default,
+            default_source: &default_source,
             required,
-            nested_ty: nested_ty.as_ref(),
+            nested_config_ty: nested_config_ty.as_ref(),
             span: field.ty.span(),
         }) {
-            Ok(stmt) => field_stmts.push(stmt),
+            Ok(tokens) => field_tokens.push(tokens),
             Err(error) => errors.push(error),
         }
     }
@@ -128,7 +128,7 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
         impl #impl_generics ::foundation_types::config::ConfigSchema for #ident #ty_generics #where_clause {
             fn schema() -> ::foundation_types::config::Schema {
                 let mut fields = ::std::vec::Vec::new();
-                #(#field_stmts)*
+                #(#field_tokens)*
                 ::foundation_types::config::Schema { fields }
             }
         }
@@ -136,49 +136,48 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
 
     DeriveOutput {
         tokens: Some(tokens),
-        errors: errors.into_vec(),
+        errors,
     }
 }
 
 #[derive(Clone)]
-enum FieldDefault {
+enum DefaultSource {
     None,
     Trait,
     Path(ExprPath),
 }
 
-struct SchemaFieldStmtArgs<'a> {
+struct SchemaFieldTokens<'a> {
     rust_name: &'a str,
     key: &'a str,
     docs: &'a [String],
     ty: &'a Type,
-    nested: bool,
     flatten: bool,
-    default: &'a FieldDefault,
+    default_source: &'a DefaultSource,
     required: bool,
-    nested_ty: Option<&'a Type>,
+    nested_config_ty: Option<&'a Type>,
     span: Span,
 }
 
-fn nested_type(ty: &Type, kind: crate::types::FieldTypeInfo) -> Option<Type> {
-    if !kind.nested {
+fn nested_config_type(ty: &Type, type_info: FieldTypeInfo) -> Option<Type> {
+    if !type_info.is_nested {
         return None;
     }
 
-    if kind.optional {
+    if type_info.is_optional {
         return extract_single_type_argument(ty).cloned();
     }
 
     Some(ty.clone())
 }
 
-fn schema_field_stmt(args: &SchemaFieldStmtArgs<'_>) -> syn::Result<proc_macro2::TokenStream> {
+fn schema_field_tokens(args: &SchemaFieldTokens<'_>) -> syn::Result<proc_macro2::TokenStream> {
     let docs = args.docs.iter().map(|doc| quote! { #doc });
     let key = args.key;
     let required = args.required;
 
     if args.flatten {
-        let nested_ty = args.nested_ty.ok_or_else(|| {
+        let nested_config_ty = args.nested_config_ty.ok_or_else(|| {
             syn::Error::new(
                 args.span,
                 "#[serde(flatten)] requires nested config metadata",
@@ -186,25 +185,25 @@ fn schema_field_stmt(args: &SchemaFieldStmtArgs<'_>) -> syn::Result<proc_macro2:
         })?;
         return Ok(quote! {
             fields.extend(
-                <#nested_ty as ::foundation_types::config::ConfigSchema>::schema()
+                <#nested_config_ty as ::foundation_types::config::ConfigSchema>::schema()
                     .fields
                     .into_iter()
-                    .map(|field| field.under_required_parent(#required))
+                    .map(|mut field| {
+                        field.required = field.required && #required;
+                        field
+                    })
             );
         });
     }
 
-    let kind = if args.nested {
-        let nested_ty = args.nested_ty.ok_or_else(|| {
-            syn::Error::new(args.span, "nested config field is missing schema metadata")
-        })?;
+    let kind = if let Some(nested_config_ty) = args.nested_config_ty {
         quote! {
             ::foundation_types::config::FieldKind::Nested {
-                schema: Box::new(<#nested_ty as ::foundation_types::config::ConfigSchema>::schema())
+                schema: Box::new(<#nested_config_ty as ::foundation_types::config::ConfigSchema>::schema())
             }
         }
     } else {
-        let default = field_default_value_tokens(args.rust_name, args.ty, args.default);
+        let default = default_yaml_tokens(args.rust_name, args.ty, args.default_source);
         quote! {
             ::foundation_types::config::FieldKind::Leaf { default_yaml: #default }
         }
@@ -220,22 +219,22 @@ fn schema_field_stmt(args: &SchemaFieldStmtArgs<'_>) -> syn::Result<proc_macro2:
     })
 }
 
-fn field_default_value_tokens(
+fn default_yaml_tokens(
     rust_name: &str,
     ty: &Type,
-    default: &FieldDefault,
+    default_source: &DefaultSource,
 ) -> proc_macro2::TokenStream {
     let context = format!("failed to serialize default for `{rust_name}`");
 
-    match default {
-        FieldDefault::Path(path) => quote! {{
+    match default_source {
+        DefaultSource::Path(path) => quote! {{
             ::core::option::Option::Some(
                 ::serde_saphyr::to_string(&{ #path() })
                     .map(|yaml| yaml.trim_end().to_owned())
                     .expect(#context),
             )
         }},
-        FieldDefault::Trait => quote! {{
+        DefaultSource::Trait => quote! {{
             ::core::option::Option::Some(
                 ::serde_saphyr::to_string(
                     &<#ty as ::core::default::Default>::default()
@@ -244,7 +243,7 @@ fn field_default_value_tokens(
                 .expect(#context),
             )
         }},
-        FieldDefault::None => quote! { ::core::option::Option::None },
+        DefaultSource::None => quote! { ::core::option::Option::None },
     }
 }
 

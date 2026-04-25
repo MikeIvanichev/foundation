@@ -1,6 +1,6 @@
 ---
 source: crates/foundation/tests/config_snapshots.rs
-expression: "Render::new(\"APP\").defaults::<SimpleConfig>()"
+expression: out
 ---
 # Service display name.
 # env: APP__NAME
