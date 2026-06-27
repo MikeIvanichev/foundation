@@ -4,19 +4,19 @@
 //!
 //! Shared service foundations for the Skuld Systems Rust workspace.
 
+#[cfg(feature = "jemalloc")]
+mod alloc;
 #[cfg(feature = "config")]
 #[cfg_attr(docsrs, doc(cfg(feature = "config")))]
 pub mod config;
-#[cfg(feature = "jemalloc")]
-mod jemalloc;
 #[cfg(feature = "otel")]
 #[cfg_attr(docsrs, doc(cfg(feature = "otel")))]
 pub mod otel;
 
 #[cfg(feature = "jemalloc")]
-pub use jemalloc::DEFAULT_MALLOC_CONF;
+pub use alloc::DEFAULT_MALLOC_CONF;
 #[cfg(feature = "jemalloc")]
-pub use jemalloc::MALLOC_CONF;
+pub use alloc::MALLOC_CONF;
 
 #[cfg(feature = "config")]
 #[cfg_attr(docsrs, doc(cfg(feature = "config")))]
