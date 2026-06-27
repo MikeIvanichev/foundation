@@ -1,0 +1,14 @@
+---
+source: tests/integration/src/config.rs
+expression: out
+---
+# Service display name.
+# env: APP__SERVICE_NAME
+service-name: integration
+
+# Optional listener.
+listener:
+
+  # Bind address.
+  # env: APP__LISTENER__BIND
+  bind: <required>
