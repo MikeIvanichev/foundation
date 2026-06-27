@@ -8,3 +8,4 @@ pub use schema::ConfigSchema;
 pub use schema::Field;
 pub use schema::FieldKind;
 pub use schema::Schema;
+pub use schema::SchemaBuilder;

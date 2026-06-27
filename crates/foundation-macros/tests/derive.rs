@@ -29,6 +29,14 @@ struct DatabaseConfig {
 #[allow(dead_code)]
 #[derive(Debug, FoundationConfig)]
 #[serde(rename_all = "kebab-case")]
+struct ReadOnlyDatabaseConfig {
+    /// Read-only database URL.
+    url_read_only: String,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, FoundationConfig)]
+#[serde(rename_all = "kebab-case")]
 struct ServiceConfig {
     /// Human-readable service name.
     #[serde(default = "default_service_name")]
@@ -44,7 +52,7 @@ struct ServiceConfig {
 
     /// Optional read-only database settings exposed at the top level.
     #[serde(flatten)]
-    read_only_database: Option<DatabaseConfig>,
+    read_only_database: Option<ReadOnlyDatabaseConfig>,
 
     /// Optional per-tenant database overrides.
     tenant_database: Option<DatabaseConfig>,
@@ -64,11 +72,22 @@ struct DeserializeNamingConfig {
     skipped_input_only: String,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, FoundationConfig)]
+#[serde(rename_all = "kebab-case")]
+struct DuplicateFlattenConfig {
+    #[serde(flatten)]
+    primary: DatabaseConfig,
+
+    #[serde(flatten)]
+    replica: DatabaseConfig,
+}
+
 #[test]
 fn derive_emits_schema_metadata_for_named_structs() {
     let schema = ServiceConfig::schema();
 
-    assert_eq!(schema.fields.len(), 9);
+    assert_eq!(schema.fields.len(), 7);
 
     let service_name = &schema.fields[0];
     assert_eq!(service_name.key, "service-name");
@@ -87,10 +106,10 @@ fn derive_emits_schema_metadata_for_named_structs() {
     assert!(!pool_size.required);
 
     let optional_flattened_url = &schema.fields[5];
-    assert_eq!(optional_flattened_url.key, "url");
+    assert_eq!(optional_flattened_url.key, "url-read-only");
     assert!(!optional_flattened_url.required);
 
-    let tenant_database = &schema.fields[8];
+    let tenant_database = &schema.fields[6];
     assert!(matches!(tenant_database.kind, FieldKind::Nested { .. }));
     assert!(tenant_database.default_yaml().is_none());
     assert!(!tenant_database.required);
@@ -106,9 +125,7 @@ fn derive_records_leaf_defaults_as_yaml_fragments() {
     assert_eq!(schema.fields[3].default_yaml(), Some("16"));
     assert_eq!(schema.fields[4].default_yaml(), Some("[]"));
     assert!(schema.fields[5].default_yaml().is_none());
-    assert_eq!(schema.fields[6].default_yaml(), Some("16"));
-    assert_eq!(schema.fields[7].default_yaml(), Some("[]"));
-    assert!(schema.fields[8].default_yaml().is_none());
+    assert!(schema.fields[6].default_yaml().is_none());
 }
 
 #[test]
@@ -117,4 +134,10 @@ fn derive_uses_deserialize_side_of_serde_names() {
 
     assert_eq!(schema.fields.len(), 1);
     assert_eq!(schema.fields[0].key, "service-name");
+}
+
+#[test]
+#[should_panic(expected = "duplicate config key `url`")]
+fn derive_rejects_duplicate_flattened_keys() {
+    let _ = DuplicateFlattenConfig::schema();
 }

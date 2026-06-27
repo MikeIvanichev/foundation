@@ -11,6 +11,57 @@ pub struct Schema {
     pub fields: Vec<Field>,
 }
 
+impl Schema {
+    /// Creates a builder that validates schema invariants while fields are
+    /// added.
+    #[must_use]
+    pub fn builder() -> SchemaBuilder {
+        SchemaBuilder::default()
+    }
+}
+
+/// Builder for [`Schema`] values.
+#[derive(Debug, Default)]
+pub struct SchemaBuilder {
+    fields: Vec<Field>,
+}
+
+impl SchemaBuilder {
+    /// Adds one field to the schema.
+    ///
+    /// # Panics
+    ///
+    /// Panics when another field with the same key already exists at this
+    /// schema level.
+    pub fn push(&mut self, field: Field) {
+        if self.fields.iter().any(|existing| existing.key == field.key) {
+            panic!("duplicate config key `{}`", field.key);
+        }
+
+        self.fields.push(field);
+    }
+
+    /// Adds a flattened child schema.
+    ///
+    /// # Panics
+    ///
+    /// Panics when any flattened field duplicates a sibling key.
+    pub fn extend_flattened(&mut self, schema: Schema, required: bool) {
+        for mut field in schema.fields {
+            field.required = field.required && required;
+            self.push(field);
+        }
+    }
+
+    /// Finishes the schema.
+    #[must_use]
+    pub fn build(self) -> Schema {
+        Schema {
+            fields: self.fields,
+        }
+    }
+}
+
 /// Metadata for one documented configuration field.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {

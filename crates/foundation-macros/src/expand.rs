@@ -127,9 +127,9 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
     let tokens = quote! {
         impl #impl_generics ::foundation_types::config::ConfigSchema for #ident #ty_generics #where_clause {
             fn schema() -> ::foundation_types::config::Schema {
-                let mut fields = ::std::vec::Vec::new();
+                let mut fields = ::foundation_types::config::Schema::builder();
                 #(#field_tokens)*
-                ::foundation_types::config::Schema { fields }
+                fields.build()
             }
         }
     };
@@ -184,14 +184,10 @@ fn schema_field_tokens(args: &SchemaFieldTokens<'_>) -> syn::Result<proc_macro2:
             )
         })?;
         return Ok(quote! {
-            fields.extend(
+            fields.extend_flattened(
                 <#nested_config_ty as ::foundation_types::config::ConfigSchema>::schema()
-                    .fields
-                    .into_iter()
-                    .map(|mut field| {
-                        field.required = field.required && #required;
-                        field
-                    })
+                ,
+                #required
             );
         });
     }
