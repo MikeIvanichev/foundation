@@ -67,22 +67,25 @@ impl Path {
         out: &mut (impl io::Write + ?Sized),
         prefix: &str,
     ) -> io::Result<()> {
-        write_ascii_uppercase(out, prefix)?;
+        write_env_segment(out, prefix)?;
 
         for (index, segment) in self.iter().enumerate() {
             if index > 0 || !prefix.is_empty() {
                 out.write_all(b"__")?;
             }
-            write_ascii_uppercase(out, segment)?;
+            write_env_segment(out, segment)?;
         }
 
         Ok(())
     }
 }
 
-fn write_ascii_uppercase(out: &mut (impl io::Write + ?Sized), value: &str) -> io::Result<()> {
+fn write_env_segment(out: &mut (impl io::Write + ?Sized), value: &str) -> io::Result<()> {
     for byte in value.bytes() {
-        out.write_all(&[byte.to_ascii_uppercase()])?;
+        match byte {
+            b'-' => out.write_all(b"_")?,
+            byte => out.write_all(&[byte.to_ascii_uppercase()])?,
+        }
     }
 
     Ok(())
@@ -106,7 +109,7 @@ mod tests {
 
     #[test]
     fn writes_env_paths() {
-        let path = Path::new().join("otel").join("endpoint");
+        let path = Path::new().join("otel").join("service-name");
 
         let mut without_prefix = Vec::new();
         path.write_env(&mut without_prefix).expect("write path");
@@ -117,8 +120,8 @@ mod tests {
             .expect("write path");
         let with_prefix = String::from_utf8(with_prefix).expect("path is UTF-8");
 
-        assert_eq!(without_prefix, "OTEL__ENDPOINT");
-        assert_eq!(with_prefix, "APP__OTEL__ENDPOINT");
+        assert_eq!(without_prefix, "OTEL__SERVICE_NAME");
+        assert_eq!(with_prefix, "APP__OTEL__SERVICE_NAME");
     }
 
     #[test]
