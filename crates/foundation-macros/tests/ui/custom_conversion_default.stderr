@@ -1,0 +1,5 @@
+error: FoundationConfig cannot render defaults for fields using custom serde conversion
+ --> tests/ui/custom_conversion_default.rs:6:41
+  |
+6 |     #[serde(default, deserialize_with = "deserialize_value")]
+  |                                         ^^^^^^^^^^^^^^^^^^^

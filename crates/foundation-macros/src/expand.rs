@@ -79,6 +79,13 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
         let type_info = classify_type(field.ty);
         let nested_config_ty = nested_config_type(field.ty, type_info);
         let flatten = field.attrs.flatten();
+        let default_source = match field.attrs.default() {
+            attr::Default::None => DefaultSource::None,
+            attr::Default::Default => DefaultSource::Trait,
+            attr::Default::Path(path) => DefaultSource::Path(path.clone()),
+        };
+        let has_default = !matches!(default_source, DefaultSource::None);
+        let mut skip_field = false;
 
         if !flatten
             && let Some(existing_span) = direct_field_keys.insert(key.clone(), field_ident.span())
@@ -98,15 +105,36 @@ pub(crate) fn derive_foundation_config_impl(input: DeriveInput) -> DeriveOutput 
                 field.ty.span(),
                 "#[serde(flatten)] is only supported on nested config structs",
             ));
+            skip_field = true;
         }
 
-        let default_source = match field.attrs.default() {
-            attr::Default::None => DefaultSource::None,
-            attr::Default::Default => DefaultSource::Trait,
-            attr::Default::Path(path) => DefaultSource::Path(path.clone()),
-        };
+        if nested_config_ty.is_some()
+            && let DefaultSource::Path(path) = &default_source
+        {
+            errors.push(syn::Error::new(
+                path.span(),
+                "FoundationConfig cannot render custom defaults for nested config structs",
+            ));
+            skip_field = true;
+        }
 
-        let has_default = !matches!(default_source, DefaultSource::None);
+        if has_default
+            && let Some(path) = field
+                .attrs
+                .serialize_with()
+                .or_else(|| field.attrs.deserialize_with())
+        {
+            errors.push(syn::Error::new(
+                path.span(),
+                "FoundationConfig cannot render defaults for fields using custom serde conversion",
+            ));
+            skip_field = true;
+        }
+
+        if skip_field {
+            continue;
+        }
+
         let required = !has_default && !type_info.is_optional;
         match schema_field_tokens(&SchemaFieldTokens {
             rust_name: &field_name,

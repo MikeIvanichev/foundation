@@ -1,0 +1,5 @@
+error: FoundationConfig cannot render custom defaults for nested config structs
+ --> tests/ui/nested_custom_default.rs:6:23
+  |
+6 |     #[serde(default = "default_nested")]
+  |                       ^^^^^^^^^^^^^^^^
