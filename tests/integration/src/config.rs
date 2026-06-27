@@ -34,3 +34,14 @@ fn renders_config_template_across_crates() {
 
     insta::assert_snapshot!(out);
 }
+
+#[test]
+fn renders_foundation_otel_config_schema() {
+    let mut out = Vec::new();
+    Renderer::new("APP")
+        .write_required::<foundation::otel::Config>(&mut out)
+        .expect("render required config");
+    let out = String::from_utf8(out).expect("rendered UTF-8");
+
+    insta::assert_snapshot!(out);
+}

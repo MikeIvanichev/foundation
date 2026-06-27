@@ -1,0 +1,27 @@
+---
+source: tests/integration/src/config.rs
+expression: out
+---
+# Resource service name.
+# env: APP__SERVICE_NAME
+service_name: <required>
+
+# Resource service version.
+# env: APP__SERVICE_VERSION
+service_version: <required>
+
+# Resource deployment environment name.
+# env: APP__DEPLOYMENT_ENV_NAME
+deployment_env_name: <required>
+
+# OTLP endpoint URL.
+# env: APP__ENDPOINT_URL
+endpoint_url: <required>
+
+# Whether to enable TLS for OTLP connections.
+# env: APP__TLS_ENABLED
+tls_enabled: <required>
+
+# Period between metric exports.
+# env: APP__METRICS_EXPORT_INTERVAL
+metrics_export_interval: <required>

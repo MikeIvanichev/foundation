@@ -13,7 +13,10 @@ workspace = true
 workspace-hack = { version = "0.0.0", path = "../../crates/workspace-hack" }
 
 [dev-dependencies]
-foundation = { version = "0.0.0", path = "../../crates/foundation", features = ["config"] }
+foundation = { version = "0.0.0", path = "../../crates/foundation", features = [
+  "config",
+  "otel",
+] }
 foundation-macros.workspace = true
 foundation-types.workspace = true
 insta = { version = "1.46.3", features = ["redactions"] }

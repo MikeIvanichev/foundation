@@ -69,6 +69,62 @@ impl Config {
     }
 }
 
+#[cfg(feature = "config")]
+impl foundation_types::config::ConfigSchema for Config {
+    fn schema() -> foundation_types::config::Schema {
+        use foundation_types::config::Field;
+        use foundation_types::config::FieldKind;
+        use foundation_types::config::Schema;
+
+        let mut fields = Schema::builder();
+        fields.push(Field {
+            key: "service_name",
+            docs: &["Resource service name."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.push(Field {
+            key: "service_version",
+            docs: &["Resource service version."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.push(Field {
+            key: "deployment_env_name",
+            docs: &["Resource deployment environment name."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.push(Field {
+            key: "endpoint_url",
+            docs: &["OTLP endpoint URL."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.push(Field {
+            key: "tls_enabled",
+            docs: &["Whether to enable TLS for OTLP connections."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.push(Field {
+            key: "metadata",
+            docs: &["Optional gRPC metadata encoded as `key=value,key2=value2`."],
+            required: false,
+            kind: FieldKind::Leaf {
+                default_yaml: Some("''".to_owned()),
+            },
+        });
+        fields.push(Field {
+            key: "metrics_export_interval",
+            docs: &["Period between metric exports."],
+            required: true,
+            kind: FieldKind::Leaf { default_yaml: None },
+        });
+        fields.build()
+    }
+}
+
 /// OTLP metadata encoded as a comma-separated `key=value` string.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]

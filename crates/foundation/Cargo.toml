@@ -16,6 +16,7 @@ default = []
 config = ["dep:foundation-types"]
 jemalloc = ["dep:tikv-jemallocator"]
 otel = [
+  "dep:anyhow",
   "dep:http",
   "dep:humantime-serde",
   "dep:opentelemetry",
@@ -31,7 +32,7 @@ otel = [
 full = ["config", "jemalloc", "otel"]
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { workspace = true, optional = true }
 foundation-types = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 humantime-serde = { workspace = true, optional = true }
