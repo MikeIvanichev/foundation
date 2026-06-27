@@ -122,7 +122,10 @@ impl<'a> Renderer<'a> {
         path: &Path,
         state: RenderState,
     ) -> io::Result<()> {
-        let required_here = state.parent_required && field.required;
+        let required_here = match state.mode {
+            RenderMode::Template => field.required,
+            RenderMode::Defaults | RenderMode::Required => state.parent_required && field.required,
+        };
 
         write_doc_lines(out, state.indent, field.docs)?;
         write_env_comment(out, state.indent, self.env_prefix, path)?;
@@ -188,11 +191,10 @@ impl<'a> Renderer<'a> {
             FieldKind::Leaf { .. } => match mode {
                 RenderMode::Defaults => field.default_yaml().is_some(),
                 RenderMode::Required => required_here,
-                RenderMode::Template => required_here || field.default_yaml().is_some(),
+                RenderMode::Template => field.required || field.default_yaml().is_some(),
             },
             FieldKind::Nested { schema } => {
-                matches!(mode, RenderMode::Template)
-                    || self.schema_would_render(schema, path, required_here, mode)
+                self.schema_would_render(schema, path, required_here, mode)
             }
         }
     }

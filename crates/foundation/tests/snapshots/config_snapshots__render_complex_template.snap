@@ -44,8 +44,20 @@ gateway:
     # HTTP listener configuration.
     http:
 
+      # Bind address for the listener.
+      # env: FOUNDATION__GATEWAY__LISTENER__HTTP__BIND
+      bind: <required>
+
     # gRPC listener configuration.
     grpc:
 
+      # Bind address for the listener.
+      # env: FOUNDATION__GATEWAY__LISTENER__GRPC__BIND
+      bind: <required>
+
     # TCP listener configuration.
     tcp:
+
+      # Bind address for the listener.
+      # env: FOUNDATION__GATEWAY__LISTENER__TCP__BIND
+      bind: <required>
