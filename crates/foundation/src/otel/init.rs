@@ -141,19 +141,8 @@ impl Drop for OtelGuard {
 
 /// Initialize tracing, metrics, and trace propagation via OTLP/gRPC.
 pub fn init_tracing(config: Config) -> anyhow::Result<OtelGuard> {
-    let previous_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |panic_info| {
-        tracing_panic::panic_hook(panic_info);
-        previous_hook(panic_info);
-    }));
-
-    global::set_text_map_propagator(TraceContextPropagator::new());
-
     let tracer_provider = init_tracer_provider(&config)?;
     let meter_provider = init_meter_provider(&config)?;
-
-    global::set_tracer_provider(tracer_provider.clone());
-    global::set_meter_provider(meter_provider.clone());
 
     let tracer = tracer_provider.tracer("foundation::otel");
     let env_filter = EnvFilter::try_from_default_env()
@@ -167,6 +156,16 @@ pub fn init_tracing(config: Config) -> anyhow::Result<OtelGuard> {
         .with(MetricsLayer::new(meter_provider.clone()))
         .try_init()
         .map_err(anyhow::Error::from)?;
+
+    global::set_text_map_propagator(TraceContextPropagator::new());
+    global::set_tracer_provider(tracer_provider.clone());
+    global::set_meter_provider(meter_provider.clone());
+
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        tracing_panic::panic_hook(panic_info);
+        previous_hook(panic_info);
+    }));
 
     Ok(OtelGuard {
         tracer_provider,
