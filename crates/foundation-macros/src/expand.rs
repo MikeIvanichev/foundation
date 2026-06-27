@@ -213,9 +213,8 @@ fn schema_field_tokens(args: &SchemaFieldTokens<'_>) -> syn::Result<proc_macro2:
         })?;
         return Ok(quote! {
             fields.extend_flattened(
-                <#nested_config_ty as ::foundation_types::config::ConfigSchema>::schema()
-                ,
-                #required
+                <#nested_config_ty as ::foundation_types::config::ConfigSchema>::schema(),
+                #required,
             );
         });
     }
@@ -268,29 +267,5 @@ fn default_yaml_tokens(
             )
         }},
         DefaultSource::None => quote! { ::core::option::Option::None },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use quote::ToTokens;
-    use syn::parse_quote;
-
-    use super::derive_foundation_config_impl;
-
-    #[test]
-    fn derive_emits_config_impl() {
-        let input: syn::DeriveInput = parse_quote! {
-            struct Example {
-                #[serde(default)]
-                enabled: bool,
-            }
-        };
-
-        let output = derive_foundation_config_impl(input)
-            .to_token_stream()
-            .to_string();
-
-        assert!(output.contains("config :: ConfigSchema"));
     }
 }

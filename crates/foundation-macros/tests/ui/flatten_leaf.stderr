@@ -1,0 +1,5 @@
+error: #[serde(flatten)] is only supported on nested config structs
+ --> tests/ui/flatten_leaf.rs:7:12
+  |
+7 |     value: String,
+  |            ^^^^^^
