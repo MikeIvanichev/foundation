@@ -1,0 +1,9 @@
+bind: 127.0.0.1:8080
+otel:
+  service_name: read-config-example
+  service_version: 0.0.0
+  deployment_env_name: development
+  endpoint_url: http://127.0.0.1:4317
+  tls_enabled: false
+  metadata: ""
+  metrics_export_interval: 30s
