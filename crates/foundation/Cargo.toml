@@ -49,6 +49,15 @@ tracing-subscriber = { workspace = true, optional = true }
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { workspace = true, optional = true }
 
+# Constrain transitive versions without compiling these as direct dependencies.
+# Cargo resolves dependencies even for this always-false target.
+[target.'cfg(any())'.dependencies]
+# zstd-sys 2.0.7 allows obsolete pkg-config APIs; use its corrected 2.0.14 floor.
+pkg-config = { version = "0.3.28", default-features = false }
+# tower 0.5.0 needs const Identity::new; corrected in tower 0.5.1.
+# https://github.com/tower-rs/tower/pull/787
+tower-layer = { version = "0.3.3", default-features = false }
+
 [dev-dependencies]
 foundation-macros.workspace = true
 insta = { version = "1.46.3", features = ["redactions"] }

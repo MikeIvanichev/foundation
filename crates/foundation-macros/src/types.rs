@@ -39,9 +39,8 @@ pub(crate) fn classify_type(ty: &Type) -> FieldTypeInfo {
         "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64" | "u128"
         | "usize" => FieldTypeInfo::leaf(false),
         "f32" | "f64" => FieldTypeInfo::leaf(false),
-        "String" | "str" | "PathBuf" | "Path" | "Url" | "IpAddr" | "SocketAddr" | "Duration" => {
-            FieldTypeInfo::leaf(false)
-        }
+        "String" | "str" | "PathBuf" | "Path" | "Url" | "Uuid" | "IpAddr" | "SocketAddr"
+        | "Duration" => FieldTypeInfo::leaf(false),
         "Option" => extract_single_type_argument(ty)
             .map(classify_type)
             .map(|inner| FieldTypeInfo {

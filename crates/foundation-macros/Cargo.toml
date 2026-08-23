@@ -20,6 +20,7 @@ syn.workspace = true
 foundation-types.workspace = true
 serde-saphyr.workspace = true
 trybuild = "1.0.114"
+uuid.workspace = true
 
 [lints]
 workspace = true

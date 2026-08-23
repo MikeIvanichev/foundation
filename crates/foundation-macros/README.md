@@ -2,6 +2,9 @@
 
 `FoundationConfig` derives documentation metadata for config structs.
 
+UUID fields (`Uuid` or `uuid::Uuid`), including `Option<Uuid>`, are recognized as
+scalar values.
+
 ## Dependency requirement
 
 If a derived field default needs to be rendered as YAML, the generated code calls

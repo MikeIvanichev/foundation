@@ -15,10 +15,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 // without imposing meaningful overhead in the default case.
 #[cfg_attr(target_os = "linux", unsafe(export_name = "malloc_conf"))]
 pub static MALLOC_CONF: &[u8] = std::cfg_select! {
-    target_os = "linux" => {
-        DEFAULT_MALLOC_CONF_BYTES
-    }
-    _ => {
-        b""
-    }
+    target_os = "linux" => DEFAULT_MALLOC_CONF_BYTES,
+    _ => b"",
 };

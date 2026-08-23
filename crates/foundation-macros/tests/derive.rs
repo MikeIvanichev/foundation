@@ -1,6 +1,7 @@
 use foundation_macros::FoundationConfig;
 use foundation_types::config::ConfigSchema;
 use foundation_types::config::FieldKind;
+use uuid::Uuid;
 
 fn default_service_name() -> String {
     "foundation".to_owned()
@@ -126,6 +127,46 @@ fn derive_records_leaf_defaults_as_yaml_fragments() {
     assert_eq!(schema.fields[4].default_yaml(), Some("[]"));
     assert!(schema.fields[5].default_yaml().is_none());
     assert!(schema.fields[6].default_yaml().is_none());
+}
+
+#[test]
+#[expect(unused_qualifications, reason = "test qualified UUID field types")]
+fn derive_supports_uuid_fields() {
+    fn default_id() -> Uuid {
+        Uuid::from_u128(0x550e8400_e29b_41d4_a716_446655440000)
+    }
+
+    #[allow(dead_code)]
+    #[derive(FoundationConfig)]
+    struct UuidConfig {
+        required: Uuid,
+        optional: Option<uuid::Uuid>,
+        #[serde(default)]
+        nil: uuid::Uuid,
+        #[serde(default = "default_id")]
+        custom: Uuid,
+    }
+
+    let schema = UuidConfig::schema();
+
+    assert_eq!(schema.fields.len(), 4);
+    for field in &schema.fields {
+        assert!(matches!(field.kind, FieldKind::Leaf { .. }));
+    }
+    assert!(schema.fields[0].required);
+    assert_eq!(schema.fields[0].default_yaml(), None);
+    assert!(!schema.fields[1].required);
+    assert_eq!(schema.fields[1].default_yaml(), None);
+    assert!(!schema.fields[2].required);
+    assert_eq!(
+        schema.fields[2].default_yaml(),
+        Some("00000000-0000-0000-0000-000000000000"),
+    );
+    assert!(!schema.fields[3].required);
+    assert_eq!(
+        schema.fields[3].default_yaml(),
+        Some("550e8400-e29b-41d4-a716-446655440000"),
+    );
 }
 
 #[test]
