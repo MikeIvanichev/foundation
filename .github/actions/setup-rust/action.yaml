@@ -35,7 +35,7 @@ runs:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
     - name: Initialize cache
-      uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
     - name: Install cargo-hack
       if: ${{ inputs['cargo-hack'] == 'true' }}
       uses: taiki-e/install-action@74e87cbfa15a59692b158178d8905a61bf6fca95 # v2.75.20
